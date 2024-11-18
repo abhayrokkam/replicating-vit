@@ -1,4 +1,4 @@
-# Replicating Vision Transformers
+# Replicating Vision Transformers (ViT)
 
 ## Introduction
 
