@@ -1,6 +1,6 @@
 # Replicating Vision Transformers (ViT)
 
-## Introduction
+## 1. Introduction
 
 The introduction of the transformer architecture by [**Vaswani et. al.**](https://doi.org/10.48550/arXiv.1706.) had the most significant impact on the field of artificial intelligence over the last decade. The architecture was so robust that only minimal changes have been proposed since 2017, with the most notable modification being the rearrangement of the layer normalization block. Having a pair of encoder-decoder while completely relying on attention to learn the patterns in the given sequence has proven to be effective enough to introduce the architecture for almost every use case in deep learning.
 
@@ -8,7 +8,22 @@ This project will focus on replicating the model proposed by [**Dosovitskiy et. 
 
 **Note: All the hyperparameter numbers described in the examples below are directly extracted from the research paper. The numbers relate to the simplest ViT model.**
 
-## Input to Encoder
+- [Replicating Vision Transformers (ViT)](#replicating-vision-transformers-vit)
+  - [1. Introduction](#1-introduction)
+  - [2. Input to Encoder](#2-input-to-encoder)
+    - [2.1. Creating Patches](#21-creating-patches)
+    - [2.2. Patch Embeddings](#22-patch-embeddings)
+      - [2.2.1. Hybrid architecture](#221-hybrid-architecture)
+    - [2.3. Prepend Class Embedding](#23-prepend-class-embedding)
+    - [2.4. Adding Positional Embeddings](#24-adding-positional-embeddings)
+      - [2.4.1. Why use positional embeddings?](#241-why-use-positional-embeddings)
+  - [3. Transformer Encoder](#3-transformer-encoder)
+    - [3.1. Layer Normalizations](#31-layer-normalizations)
+    - [3.2. Residual Connections](#32-residual-connections)
+    - [3.3. Multi-Head Self-Attention](#33-multi-head-self-attention)
+    - [3.4. Multi-layer Perceptron](#34-multi-layer-perceptron)
+
+## 2. Input to Encoder
 
 We start by processing the image data which is fed to the transformer encoder. We will look at the encoder in a later part of this project. First, we will focus on converting our image data into the below shown format before feeding it to the transformer encoder.
 
@@ -20,14 +35,14 @@ We start by processing the image data which is fed to the transformer encoder. W
 - Adding positional embeddings to give positional information regarding our data. 
 
 <p align="center">
-  <img src="./images/image_to_encoder.png"/>
+  <img src="./images/input_to_encoder.png"/>
   <br>
   <em>Looking at the input of the transformer encoder</em>
 </p>
 
 ---
 
-### Creating Patches
+### 2.1. Creating Patches
 
 - Chop the image into `n` number of patches. This will be `num_patches`.
 
@@ -44,7 +59,7 @@ We start by processing the image data which is fed to the transformer encoder. W
 
 ---
 
-### Patch Embeddings
+### 2.2. Patch Embeddings
 
 - We have `num_patches` number of patches. Each patch is a piece of an image.
 
@@ -63,7 +78,7 @@ We start by processing the image data which is fed to the transformer encoder. W
 
     - After reshaping it will be of size `(196, 768)` which shows that there are `196` patches of data with each patch having `768` dimensions.
 
-#### Hybrid architecture
+#### 2.2.1. Hybrid architecture
 
 > As an alternative to raw image patches, the input sequence can be formed from feature maps of a CNN (LeCun et al., 1989). In this hybrid model, the patch embedding projection `E` (Eq. 1) is applied to patches extracted from a CNN feature map.
 
@@ -80,7 +95,7 @@ The above given text is from [**Dosovitskiy et. al.**](https://doi.org/10.48550/
 
 ---
 
-### Prepend Class Embedding
+### 2.3. Prepend Class Embedding
 
 - After the computations of patch embeddings, a learnable dimension has to be prepended to the `patch_embeddings`.
 
@@ -107,7 +122,7 @@ The above given text is from [**Dosovitskiy et. al.**](https://doi.org/10.48550/
 
 --- 
 
-### Adding Positional Embeddings
+### 2.4. Adding Positional Embeddings
 
 - After the computations of all the required embeddings, the focus is to provide some information regarding the positions of the patches with respect to the whole image.
 
@@ -124,7 +139,7 @@ The above given text is from [**Dosovitskiy et. al.**](https://doi.org/10.48550/
 
     - Image shown below shows the plot of a learned positional embedding.
 
-#### Why use positional embeddings?
+#### 2.4.1. Why use positional embeddings?
 
 <p align="center">
   <img src="./images/positional_embedding_plt.png"/>
@@ -143,3 +158,73 @@ The above given text is from [**Dosovitskiy et. al.**](https://doi.org/10.48550/
 - The problem arises while fine-tuning the model as the general consensus is to fine-tune a model on higher resolution data. Higher resolution images with the same `patch_size` will lead to higher number of patches. This makes the learnt positional embeddings during training to be useless. The solution is to perform interpolation of the pre-trained positional embeddings while respecting its position in images.
 
 --- 
+
+## 3. Transformer Encoder
+
+All the data has been processed and is ready to be passed on to the transformer encoder. This section focuses on the architecture of the transformer encoder. The encoder will have multiple layers such as normalization layers, multi-head self-attention layers and multi-layer perceptrons. These layers will be used to learn the information within the patches and store it in the learnable embedding layer.
+
+**Overview**:
+- The first layer of the transformer encoder will be LayerNormalization. 
+- After normalizations, the second layer will be multi-headed self-attention (MHSA). The three arrows are explained below.
+- There is a residual connection after MHSA.
+- There is another LayerNormalization which leads to a multilayer perceptron (MLP).
+- This is followed with another residual connection.
+- This will be the transformer encoder block. It is possible to have multiple transformer encoder blocks in a single ViT model.
+
+<p align="center">
+  <img src="./images/transformer_encoder.png"/>
+  <br>
+  <em>Architecture of Transformer Encoder</em>
+</p>
+
+---
+
+### 3.1. Layer Normalizations
+
+- Layer normalization is a basic normalization technique. It is done to scale all the values of one datapoint to a specific range.
+
+- This is to deal with the problem of internal covariate shift. Using normalization makes the model more capable of handling unseen and varied data.
+
+- Example:
+  - The first layer of the model will be `LayerNorm` which will take in a value for a `normalized_shape` as a hyperparameter. This will be equal to `embed_dims` which will be the same size as input to the `LayerNorm`.
+
+### 3.2. Residual Connections
+
+- There are two residual connections in this architecture. These are the arrows that bypass different layers and lead to the `+` symbols.
+
+- The residual connections take the values from the arrow-tail and add it to the values at the arrow-head (look at the graph).
+
+- This is to stabalize the computations of the network. This also helps to disregard the features that don't have a lot of significance making the convergence process faster.
+  
+### 3.3. Multi-Head Self-Attention
+
+- After normalization, the embeddings are scaled to three different tensors called query, key, value for the multi-head self-attention (MHSA) layer. Those are the three arrows seen from normalization layer to MHSA layer.
+
+- `query` and `key` is processed for an attention filter. This attention filter is used with the `value` which helps apply the attention filter on the value matrix.
+
+- The output will be a filtered value matrix. 
+  
+- This is the heart of the transformer encoder where most of the learning takes place.
+
+- Example:
+  - The MHSA will take in `embed_dim` argument which will be equal to `embed_dims`. 
+  
+  - It also takes in `num_heads` which is the number of attention heads in the model. This is the 'multi-head' part of the layer. This will decide the number of self-attention layers to be used.
+
+  - We will also set `batch_first` to `True` as there is a batch dimension in the beginning of our data.
+
+  - All three `query`, `key`, `value` will take the same value which is the output from `LayerNorm`. This is because it is self-attention.
+
+### 3.4. Multi-layer Perceptron
+
+- This is a simple multi-layer perceptron which processes the data to a higher dimensionality and then moves it back to the original dimensions.
+
+- This is to learn the patterns from the output of the attention block.
+
+- Example:
+  - The `in_features` will be the output from the previous layers which will be equal to `embed_dims`. The `out_features` for the first layer will be `mlp_ratio` which is the ratio by which the embedding dimension should be scaled.
+
+  - The next layer will have `in_features` equal to `mlp_ratio * embed_dims` which is the number of dimensions after scaling. `out_features` will bring back the dimension count to the original `embed_dims`.
+
+---
+
