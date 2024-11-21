@@ -4,11 +4,13 @@
 import os
 import random
 
+import torch
+import torchvision
 import torchvision.datasets as datasets
 
 import shutil
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 def data_download(target_classes: List[str] = ['cannoli', 'donuts', 'pancakes', 'tiramisu', 'waffles'],
                   amount_to_get: float = 0.25,
@@ -117,3 +119,48 @@ def data_download(target_classes: List[str] = ['cannoli', 'donuts', 'pancakes', 
     # Removing the downloaded data
     os.remove(Path(data_path / 'food-101.tar.gz'))
     shutil.rmtree(Path(data_path / 'food-101'))
+
+def get_dataloaders(train_path: str,
+                    test_path: str,
+                    batch_size: int) -> Tuple[torch.utils.data.DataLoader, 
+                                              torch.utils.data.DataLoader,
+                                              List[str]]:
+    """
+    
+    """
+    # Dataset transforms
+    train_transform = torchvision.transforms.Compose(
+        [torchvision.transforms.Resize(size = (224, 224)),
+        torchvision.transforms.TrivialAugmentWide(num_magnitude_bins=31),
+        torchvision.transforms.ToTensor()]
+    )
+
+    test_transform = torchvision.transforms.Compose(
+        [torchvision.transforms.Resize(size = (224, 224)),
+        torchvision.transforms.ToTensor()]
+    )
+
+    # Datasets
+    train_dataset = torchvision.datasets.ImageFolder(root=train_path,
+                                                    transform=train_transform,
+                                                    target_transform=None)
+
+    test_dataset = torchvision.datasets.ImageFolder(root=test_path,
+                                                    transform=test_transform,
+                                                    target_transform=None)
+    
+    # Dataloaders
+    train_dataloader = torch.utils.data.DataLoader(dataset=train_dataset,
+                                                   batch_size=batch_size,
+                                                   shuffle=True,
+                                                   pin_memory=True)
+
+    test_dataloader = torch.utils.data.DataLoader(dataset=test_dataset,
+                                                  batch_size=batch_size,
+                                                  shuffle=False,
+                                                  pin_memory=True)
+    
+    # Class labels
+    class_labels = train_dataset.classes
+    
+    return train_dataloader, test_dataloader, class_labels
