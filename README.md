@@ -22,6 +22,7 @@ This project will focus on replicating the model proposed by [**Dosovitskiy et. 
     - [3.2. Residual Connections](#32-residual-connections)
     - [3.3. Multi-Head Self-Attention](#33-multi-head-self-attention)
     - [3.4. Multi-layer Perceptron](#34-multi-layer-perceptron)
+  - [4. Classifier](#4-classifier)
 
 ## 2. Input to Encoder
 
@@ -186,7 +187,7 @@ All the data has been processed and is ready to be passed on to the transformer 
 - This is to deal with the problem of internal covariate shift. Using normalization makes the model more capable of handling unseen and varied data.
 
 - Example:
-  - The first layer of the model will be `LayerNorm` which will take in a value for a `normalized_shape` as a hyperparameter. This will be equal to `embed_dims` which will be the same size as input to the `LayerNorm`.
+  - The first layer of the model will be `LayerNorm` which will take in a value for a `normalized_shape` as a hyperparameter. This will be equal to `embed_dims -> 768` which will be the same size as input to the `LayerNorm`.
 
 ### 3.2. Residual Connections
 
@@ -207,9 +208,9 @@ All the data has been processed and is ready to be passed on to the transformer 
 - This is the heart of the transformer encoder where most of the learning takes place.
 
 - Example:
-  - The MHSA will take in `embed_dim` argument which will be equal to `embed_dims`. 
+  - The MHSA will take in `embed_dim` argument which will be equal to `embed_dims -> 768`. 
   
-  - It also takes in `num_heads` which is the number of attention heads in the model. This is the 'multi-head' part of the layer. This will decide the number of self-attention layers to be used.
+  - It also takes in `num_heads -> 12` which is the number of attention heads in the model. This is the 'multi-head' part of the layer. This will decide the number of self-attention layers to be used.
 
   - We will also set `batch_first` to `True` as there is a batch dimension in the beginning of our data.
 
@@ -222,9 +223,26 @@ All the data has been processed and is ready to be passed on to the transformer 
 - This is to learn the patterns from the output of the attention block.
 
 - Example:
-  - The `in_features` will be the output from the previous layers which will be equal to `embed_dims`. The `out_features` for the first layer will be `mlp_ratio` which is the ratio by which the embedding dimension should be scaled.
+  - The `in_features` will be the output from the previous layers which will be equal to `embed_dims -> 768`. The `out_features` for the first layer will be `mlp_ratio -> 4` which is the ratio by which the embedding dimension should be scaled.
 
-  - The next layer will have `in_features` equal to `mlp_ratio * embed_dims` which is the number of dimensions after scaling. `out_features` will bring back the dimension count to the original `embed_dims`.
+  - The next layer will have `in_features` equal to `mlp_ratio * embed_dims -> 4 * 768` which is the number of dimensions after scaling. `out_features` will bring back the dimension count to the original `embed_dims`.
 
 ---
 
+## 4. Classifier
+
+- The classifier block takes the output of the transformer encoder and uses that information to predict a class for the input image.
+
+- The output of the transformer encoder will have the shape of `(class_embedding + num_patches, embed_dims) -> (197, 768)`.
+
+- The classifer block for ViT is a simple structure. It is a linear layer.
+
+- The input for the linear layer is the learnable embedding from the output of the transformer encoder which has the shape of `(class_embedding, embed_dims) -> (1, 768)`. 
+
+- The linear layer will scale the `embed_dims -> 768` to `num_classes` which is the number of classes that is in our classification problem.
+
+- The outputs will have a number associated for each class. For a probability distribution across all the classes, we can apply a `softmax` function. This is how likely the image is to belong to each class.
+
+- Using `argmax` will pick the highest probability out of all the classes which is the most likely classification of our image.
+
+---
