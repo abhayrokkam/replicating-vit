@@ -51,4 +51,41 @@ class DataEmbeddings(torch.nn.Module):
         
         return x
         
+class EncoderBlock(torch.nn.Module):
+    """
+    """
+    def __init__(self,
+                 embed_dims: int,
+                 num_attn_heads: int,
+                 ratio_hidden_mlp: int,
+                 batch_first: bool) -> None:
+        super().__init__()
         
+        self.layer_norm = torch.nn.LayerNorm(embed_dims)
+        
+        self.multi_head_attn = torch.nn.MultiheadAttention(embed_dim=embed_dims,
+                                                      num_heads=num_attn_heads,
+                                                      batch_first=batch_first)
+        
+        self.mlp = torch.nn.Sequential(
+            torch.nn.Linear(in_features=embed_dims,
+                            out_features=int(embed_dims * ratio_hidden_mlp)),
+            torch.nn.GELU(),
+            torch.nn.Linear(in_features=int(embed_dims * ratio_hidden_mlp),
+                            out_features=embed_dims)
+        )
+        
+    def forward(self, x):
+        # Multi-head attention block
+        x = self.layer_norm(x)
+        attn_output, _ = self.multi_head_attn(query=x,
+                                              key=x,
+                                              value=x)
+        x = attn_output + x
+        
+        # MLP block
+        x = self.layer_norm(x)
+        mlp_output = self.mlp(x)
+        x = mlp_output + x
+        
+        return x      
