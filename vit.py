@@ -113,6 +113,10 @@ class ViT(torch.nn.Module):
     def forward(self, x):
         x = self.data_embeddings(x)
         x = self.encoder_blocks(x)
+        
+        # Selecting the learnable embeddings (class embedding)
+        x = x[:, 0, :]  
+        
         x = self.classifier(x)
         
         return x
