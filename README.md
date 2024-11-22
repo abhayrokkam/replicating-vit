@@ -246,3 +246,7 @@ All the data has been processed and is ready to be passed on to the transformer 
 - Using `argmax` will pick the highest probability out of all the classes which is the most likely classification of our image.
 
 ---
+
+Notes:
+
+> The classification head is implemented by a MLP with one hidden layer at pre-training time and by a single linear layer at fine-tuning time.

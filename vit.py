@@ -1,22 +1,15 @@
 import torch
 
-class DataEmbeddings(torch.nn.Module):
-    """
-    
-    """
-    
-    # Patches
-    PATCH_SIZE = (16, 16)
-    NUM_PATCHES = int((224 / 16) ** 2)
+from typing import Tuple
 
-    # Patches to Embeddings
-    EMBED_DIMS = 768
-    
+class DataEmbeddings(torch.nn.Module):
+    """ 
+    """
     def __init__(self,
-                 in_channels = 3,
-                 patch_size = PATCH_SIZE,
-                 num_patches = NUM_PATCHES,
-                 embed_dims = EMBED_DIMS) -> None:
+                 in_channels: int,
+                 patch_size: int | Tuple[int, int],
+                 num_patches: int,
+                 embed_dims: int) -> None:
         super().__init__()
         
         self.conv_layer = torch.nn.Conv2d(in_channels=in_channels,
@@ -57,15 +50,14 @@ class EncoderBlock(torch.nn.Module):
     def __init__(self,
                  embed_dims: int,
                  num_attn_heads: int,
-                 ratio_hidden_mlp: int,
-                 batch_first: bool) -> None:
+                 ratio_hidden_mlp: int) -> None:
         super().__init__()
         
         self.layer_norm = torch.nn.LayerNorm(embed_dims)
         
         self.multi_head_attn = torch.nn.MultiheadAttention(embed_dim=embed_dims,
-                                                      num_heads=num_attn_heads,
-                                                      batch_first=batch_first)
+                                                           num_heads=num_attn_heads,
+                                                           batch_first=True)
         
         self.mlp = torch.nn.Sequential(
             torch.nn.Linear(in_features=embed_dims,
@@ -88,4 +80,39 @@ class EncoderBlock(torch.nn.Module):
         mlp_output = self.mlp(x)
         x = mlp_output + x
         
-        return x      
+        return x
+    
+class ViT(torch.nn.Module):
+    """
+    """
+    def __init__(self,
+                 in_channels: int,
+                 out_dims: int,
+                 patch_size: int | Tuple[int, int],
+                 num_patches: int,
+                 embed_dims: int,
+                 num_attn_heads: int,
+                 ratio_hidden_mlp: int,
+                 num_encoder_blocks: int) -> None:
+        super().__init__()
+        
+        self.data_embeddings = DataEmbeddings(in_channels=in_channels,
+                                              patch_size=patch_size,
+                                              num_patches=num_patches,
+                                              embed_dims=embed_dims)
+        
+        self.encoder_blocks = torch.nn.Sequential(*[
+            EncoderBlock(embed_dims=embed_dims,
+                         num_attn_heads=num_attn_heads,
+                         ratio_hidden_mlp=ratio_hidden_mlp) for _ in range(num_encoder_blocks)
+        ])
+        
+        self.classifier = torch.nn.Linear(in_features=embed_dims,
+                                          out_features=out_dims)
+        
+    def forward(self, x):
+        x = self.data_embeddings(x)
+        x = self.encoder_blocks(x)
+        x = self.classifier(x)
+        
+        return x
