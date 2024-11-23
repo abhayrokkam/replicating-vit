@@ -1,6 +1,3 @@
-"""
-"""
-
 import os
 import random
 
@@ -16,36 +13,34 @@ def data_download(target_classes: List[str] = ['cannoli', 'donuts', 'pancakes', 
                   amount_to_get: float = 0.25,
                   seed = 123):
     """
-    Downloads and organizes a subset of the Food101 dataset into a target directory, 
-    based on specified classes and a specified fraction of images per class.
-
-    This function performs the following steps:
-    1. Creates a local directory to store the data.
-    2. Downloads the Food101 dataset (both training and testing splits).
-    3. Selects a random subset of images from specified target classes.
-    4. Copies the selected images into a structured target directory.
-    5. Cleans up by removing the original downloaded dataset.
+    Downloads and processes a subset of images from the Food101 dataset based on specified target classes.
+    The images are split into training and testing sets, with a random subset of each class chosen based on 
+    the amount_to_get parameter. The images are then moved into a target directory for further use.
 
     Args:
-        target_classes (List[str], optional): A list of class names to include from the Food101 dataset.
-            Defaults to ['cannoli', 'donuts', 'pancakes', 'tiramisu', 'waffles'].
-        amount_to_get (float, optional): The fraction of images to randomly select from each class.
-            Defaults to 0.25, meaning 25% of the images in each class will be selected.
-        seed (int, optional): The random seed for reproducibility of the image selection.
-            Defaults to 123.
+        target_classes (List[str]): A list of target class names (categories) to download. 
+                                     Default is ['cannoli', 'donuts', 'pancakes', 'tiramisu', 'waffles'].
+        amount_to_get (float): Fraction of the total available images per class to download, represented as 
+                               a value between 0 and 1. Default is 0.25 (i.e., 25% of the images per class).
+        seed (int): Random seed for reproducibility of random selections. Default is 123.
 
     Returns:
-        None: This function does not return any values. It downloads and organizes the data 
-        into directories on disk.
+        None: This function modifies the filesystem by downloading, processing, and organizing image files 
+              into appropriate directories. No value is returned.
 
     Raises:
-        FileNotFoundError: If the Food101 dataset is not available or cannot be downloaded.
-        shutil.Error: If there is an issue copying images to the target directory.
+        FileNotFoundError: If the Food101 dataset cannot be found or downloaded correctly.
+        ValueError: If an invalid class name is provided in `target_classes`.
     
     Example:
-        data_download(target_classes=['cannoli', 'donuts'], amount_to_get=0.1)
-            Downloads 10% of the images for 'cannoli' and 'donuts' from the Food101 dataset 
-            and saves them in a structured directory under './data/desserts'.    
+        data_download(target_classes=['cannoli', 'donuts'], amount_to_get=0.5)
+        This would download and move 50% of images from the 'cannoli' and 'donuts' classes from the Food101 dataset.
+
+    Notes:
+        - The function assumes that the Food101 dataset is not already present in the './data/' directory.
+        - The images are saved into a subdirectory `./data/desserts/` organized by 'train' and 'test' splits.
+        - Any existing data in `./data/desserts/` will be overwritten.
+        - The function automatically cleans up the temporary files by removing the downloaded dataset archive and folder.
     """
     # Creating the data directory
     data_path = Path('./data/')
@@ -65,44 +60,33 @@ def data_download(target_classes: List[str] = ['cannoli', 'donuts', 'pancakes', 
     # Setup data paths
     images_path = data_path / "food-101" / "images"
 
-    ####################################################################
-
-    # Function to separate a random amount of data
-    def get_subset(images_path=images_path,
-                data_splits=["train", "test"], 
-                target_classes=target_classes,
-                amount=amount_to_get,
-                seed=seed):
-        random.seed(seed)
-        label_splits = {}
+    # Setting random seed
+    random.seed(seed)
+    
+    data_splits = ['train', 'test']
+    label_splits = {}
+    
+    # Get labels
+    for data_split in data_splits:
+        print(f"\n[INFO] Creating image split for: {data_split}...")
+        label_path = data_path / "food-101" / "meta" / f"{data_split}.txt"
         
-        # Get labels
-        for data_split in data_splits:
-            print(f"\n[INFO] Creating image split for: {data_split}...")
-            label_path = data_path / "food-101" / "meta" / f"{data_split}.txt"
+        class_images_path = []
+        for target_class in target_classes:
+            # Extracting all the files of specific class
+            with open(label_path, "r") as f:
+                labels = [line.strip("\n") for line in f.readlines() if line.split("/")[0] == target_class]
             
-            class_images_path = []
-            for target_class in target_classes:
-                with open(label_path, "r") as f:
-                    labels = [line.strip("\n") for line in f.readlines() if line.split("/")[0] == target_class]
-                
-                # Get random subset of target classes image ID's
-                number_to_sample = round(amount * len(labels))
-                print(f"[INFO] Getting random subset of {number_to_sample} images for {data_split} in class {target_class}...")
-                sampled_images = random.sample(labels, k=number_to_sample)
-                
-                # Apply full paths
-                image_paths = [Path(str(images_path / sample_image) + ".jpg") for sample_image in sampled_images]
-                class_images_path.extend(image_paths)
+            # Get random subset of target classes image ID's
+            number_to_sample = round(amount_to_get * len(labels))
+            print(f"[INFO] Getting random subset of {number_to_sample} images for {data_split} in class {target_class}...")
+            sampled_images = random.sample(labels, k=number_to_sample)
             
-            label_splits[data_split] = class_images_path
-                
-        return label_splits
-    
-    ####################################################################
-    
-    # List of paths to randomly selected data
-    label_splits = get_subset()
+            # Apply full paths
+            image_paths = [Path(str(images_path / sample_image) + ".jpg") for sample_image in sampled_images]
+            class_images_path.extend(image_paths)
+        
+        label_splits[data_split] = class_images_path
     
     # Create target directory path
     target_dir = Path("./data/desserts")
@@ -126,7 +110,38 @@ def get_dataloaders(train_path: str,
                                               torch.utils.data.DataLoader,
                                               List[str]]:
     """
-    
+    Loads and prepares the training and testing datasets for a machine learning model using the ImageFolder
+    dataset class from `torchvision`. The datasets are transformed, batched, and returned as DataLoader objects 
+    for easy iteration during training and evaluation. The function also returns the class labels found in the 
+    training dataset.
+
+    Args:
+        train_path (str): The path to the directory containing the training images, organized in subdirectories 
+                          where each subdirectory represents a class.
+        test_path (str): The path to the directory containing the testing images, organized in the same way 
+                         as the training images.
+        batch_size (int): The number of samples to include in each batch for both the training and testing 
+                          dataloaders.
+
+    Returns:
+        Tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader, List[str]]:
+            - A DataLoader for the training dataset (`train_dataloader`).
+            - A DataLoader for the testing dataset (`test_dataloader`).
+            - A list of class labels (`class_labels`) as found in the training dataset.
+
+    Example:
+        train_loader, test_loader, class_labels = get_dataloaders(
+            train_path='./data/train', 
+            test_path='./data/test', 
+            batch_size=32
+        )
+
+    Notes:
+        - The training data undergoes resizing (224x224 pixels) and augmentation using `TrivialAugmentWide` 
+          for improved model generalization.
+        - The testing data is resized to 224x224 pixels and converted to tensors.
+        - Both DataLoader objects are set to use `pin_memory=True` for improved data transfer speed on CUDA devices.
+        - The function assumes the data is organized in subdirectories, with each subdirectory representing a class.
     """
     # Dataset transforms
     train_transform = torchvision.transforms.Compose(
