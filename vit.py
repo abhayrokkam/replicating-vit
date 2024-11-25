@@ -128,33 +128,7 @@ class EncoderBlock(torch.nn.Module):
     
 class ViT(torch.nn.Module):
     """
-    Vision Transformer (ViT) model for image classification. It processes input images through 
-    patch embeddings, followed by multiple encoder blocks, and outputs class predictions.
 
-    Args:
-        in_channels (int): The number of input channels (e.g., 3 for RGB images).
-        out_dims (int): The number of output classes for classification.
-        patch_size (int | Tuple[int, int]): The size of the patches to divide the input image into.
-        num_patches (int): The total number of patches generated from the input image.
-        embed_dims (int): The dimensionality of the embeddings.
-        num_attn_heads (int): The number of attention heads in the multi-head attention mechanism.
-        ratio_hidden_mlp (int): The scaling factor for the hidden layer size in the MLP of encoder blocks.
-        num_encoder_blocks (int): The number of transformer encoder blocks.
-
-    Attributes:
-        data_embeddings (DataEmbeddings): A module to create patch embeddings from the input image.
-        encoder_blocks (torch.nn.Sequential): A series of transformer encoder blocks for feature extraction.
-        classifier (torch.nn.Linear): A linear layer to classify the extracted features.
-
-    Forward pass:
-        - The input image is split into patches and embedded.
-        - The embedded patches pass through the encoder blocks.
-        - The class embedding (first token) is extracted and passed through the classifier to make predictions.
-
-    Example:
-        vit = ViT(in_channels=3, out_dims=10, patch_size=16, num_patches=196, embed_dims=768, 
-                  num_attn_heads=12, ratio_hidden_mlp=4, num_encoder_blocks=12)
-        output = vit(input_image)
     """
     def __init__(self,
                  in_channels: int,
@@ -175,11 +149,15 @@ class ViT(torch.nn.Module):
         self.encoder_blocks = torch.nn.Sequential(*[
             EncoderBlock(embed_dims=embed_dims,
                          num_attn_heads=num_attn_heads,
-                         ratio_hidden_mlp=ratio_hidden_mlp) for _ in range(num_encoder_blocks)
-        ])
+                         ratio_hidden_mlp=ratio_hidden_mlp) for _ in range(num_encoder_blocks)],
+            torch.nn.LayerNorm(embed_dims))
         
-        self.classifier = torch.nn.Linear(in_features=embed_dims,
-                                          out_features=out_dims)
+        self.classifier = torch.nn.Sequential(
+            torch.nn.Linear(in_features=embed_dims,
+                            out_features=ratio_hidden_mlp*embed_dims),
+            torch.nn.Linear(in_features=ratio_hidden_mlp*embed_dims,
+                            out_features=out_dims)
+        )
         
     def forward(self, x):
         x = self.data_embeddings(x)

@@ -23,6 +23,7 @@ This project will focus on replicating the model proposed by [**Dosovitskiy et. 
     - [3.3. Multi-Head Self-Attention](#33-multi-head-self-attention)
     - [3.4. Multi-layer Perceptron](#34-multi-layer-perceptron)
   - [4. Classifier](#4-classifier)
+  - [5. Moving Forward](#5-moving-forward)
 
 ## 2. Input to Encoder
 
@@ -158,8 +159,6 @@ The above given text is from [**Dosovitskiy et. al.**](https://doi.org/10.48550/
 
 - The problem arises while fine-tuning the model as the general consensus is to fine-tune a model on higher resolution data. Higher resolution images with the same `patch_size` will lead to higher number of patches. This makes the learnt positional embeddings during training to be useless. The solution is to perform interpolation of the pre-trained positional embeddings while respecting its position in images.
 
---- 
-
 ## 3. Transformer Encoder
 
 All the data has been processed and is ready to be passed on to the transformer encoder. This section focuses on the architecture of the transformer encoder. The encoder will have multiple layers such as normalization layers, multi-head self-attention layers and multi-layer perceptrons. These layers will be used to learn the information within the patches and store it in the learnable embedding layer.
@@ -171,6 +170,7 @@ All the data has been processed and is ready to be passed on to the transformer 
 - There is another LayerNormalization which leads to a multilayer perceptron (MLP).
 - This is followed with another residual connection.
 - This will be the transformer encoder block. It is possible to have multiple transformer encoder blocks in a single ViT model.
+- The output of the transformer encoder blocks will go through a LayerNormalization before going through the classifier.
 
 <p align="center">
   <img src="./images/transformer_encoder.png"/>
@@ -227,26 +227,32 @@ All the data has been processed and is ready to be passed on to the transformer 
 
   - The next layer will have `in_features` equal to `mlp_ratio * embed_dims -> 4 * 768` which is the number of dimensions after scaling. `out_features` will bring back the dimension count to the original `embed_dims`.
 
----
-
 ## 4. Classifier
 
-- The classifier block takes the output of the transformer encoder and uses that information to predict a class for the input image.
+The classifier block takes the output of the transformer encoder and uses that information to predict a class for the input image.
 
-- The output of the transformer encoder will have the shape of `(class_embedding + num_patches, embed_dims) -> (197, 768)`.
+The below given text is from the Vision Transformer paper. This specifies different approaches for pre-training and fine-tuning.
 
-- The classifer block for ViT is a simple structure. It is a linear layer.
+> The classification head is implemented by a MLP with one hidden layer at pre-training time and by a single linear layer at fine-tuning time. 
 
-- The input for the linear layer is the learnable embedding from the output of the transformer encoder which has the shape of `(class_embedding, embed_dims) -> (1, 768)`. 
+- The output of the transformer encoder after going through a `layer_norm` layer will have the shape of `(class_embedding + num_patches, embed_dims) -> (197, 768)`.
 
-- The linear layer will scale the `embed_dims -> 768` to `num_classes` which is the number of classes that is in our classification problem.
+- As it is a model which will be trained-from-scratch, classifier will be a MLP with one hidden layer.
+
+- The input for the linear layer is the learnable embedding from the output of the transformer encoder which has the shape of `(class_embedding, embed_dims) -> (1, 768)`.
+
+- This first linear layer will scale the `embed_dims -> 768` to `mlp_ratio * embed_dims -> 4 * 768`. The hidden layer of the MLP will have `4 * 768` units.
+
+- The next linear layer will scale the `mlp_ratio * embed_dims -> 4 * 768` to `num_classes` which is the number of classes that is in our classification problem.
 
 - The outputs will have a number associated for each class. For a probability distribution across all the classes, we can apply a `softmax` function. This is how likely the image is to belong to each class.
 
 - Using `argmax` will pick the highest probability out of all the classes which is the most likely classification of our image.
 
+## 5. Moving Forward
+
+This project focuses on replicating the Vision Transformer (ViT) model as described in the original research paper.
+
+The model built in this project is used in the [Dessert Classification](https://github.com/abhayrokkam/classify-desserts) project where the model is trained to classify five different types of desserts. The project also focuses on fine-tuning a vision transformer (ViT) with the same architecture that has been pre-trained on ImageNet dataset.
+
 ---
-
-Notes:
-
-> The classification head is implemented by a MLP with one hidden layer at pre-training time and by a single linear layer at fine-tuning time.
