@@ -94,14 +94,15 @@ class EncoderBlock(torch.nn.Module):
     def __init__(self,
                  embed_dims: int,
                  num_attn_heads: int,
-                 ratio_hidden_mlp: int) -> None:
+                 ratio_hidden_mlp: int,
+                 batch_first: bool = True) -> None:
         super().__init__()
         
         self.layer_norm = torch.nn.LayerNorm(embed_dims)
         
         self.multi_head_attn = torch.nn.MultiheadAttention(embed_dim=embed_dims,
                                                            num_heads=num_attn_heads,
-                                                           batch_first=True)
+                                                           batch_first=batch_first)
         
         self.mlp = torch.nn.Sequential(
             torch.nn.Linear(in_features=embed_dims,
@@ -117,18 +118,41 @@ class EncoderBlock(torch.nn.Module):
         attn_output, _ = self.multi_head_attn(query=x,
                                               key=x,
                                               value=x)
-        x = attn_output + x
+        x = x + attn_output
         
         # MLP block
         x = self.layer_norm(x)
         mlp_output = self.mlp(x)
-        x = mlp_output + x
+        x = x + mlp_output
         
         return x
     
 class ViT(torch.nn.Module):
     """
+    Vision Transformer (ViT) for image classification.
 
+    A transformer-based model that splits an input image into patches, embeds them, processes them 
+    through multiple encoder blocks with attention mechanisms, and classifies the result.
+
+    Args:
+        in_channels (int): Number of input channels (e.g., 3 for RGB images).
+        out_dims (int): Number of output classes.
+        patch_size (int or Tuple[int, int]): Size of the image patches.
+        num_patches (int): Total number of patches.
+        embed_dims (int): Embedding dimension size.
+        num_attn_heads (int): Number of attention heads in the encoder.
+        ratio_hidden_mlp (int): Ratio of hidden layer size to embedding size.
+        num_encoder_blocks (int): Number of transformer encoder blocks.
+
+    Attributes:
+        data_embeddings (DataEmbeddings): Embeds input image patches.
+        encoder_blocks (torch.nn.Sequential): Transformer encoder blocks.
+        classifier (torch.nn.Sequential): Classifier for output predictions.
+
+    Forward pass:
+        x (torch.Tensor): Input tensor (batch of images).
+        Returns:
+            torch.Tensor: Predicted class scores.
     """
     def __init__(self,
                  in_channels: int,
