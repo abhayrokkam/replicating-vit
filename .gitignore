@@ -6,3 +6,9 @@ data
 
 # Python cache
 __pycache__
+
+# Training results
+runs
+
+# Models
+models

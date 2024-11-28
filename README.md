@@ -23,7 +23,6 @@ This project will focus on replicating the model proposed by [**Dosovitskiy et. 
     - [3.3. Multi-Head Self-Attention](#33-multi-head-self-attention)
     - [3.4. Multi-layer Perceptron](#34-multi-layer-perceptron)
   - [4. Classifier](#4-classifier)
-  - [5. Moving Forward](#5-moving-forward)
 
 ## 2. Input to Encoder
 
@@ -248,11 +247,5 @@ The below given text is from the Vision Transformer paper. This specifies differ
 - The outputs will have a number associated for each class. For a probability distribution across all the classes, we can apply a `softmax` function. This is how likely the image is to belong to each class.
 
 - Using `argmax` will pick the highest probability out of all the classes which is the most likely classification of our image.
-
-## 5. Moving Forward
-
-This project focuses on replicating the Vision Transformer (ViT) model as described in the original research paper.
-
-The model built in this project is used in the [Dessert Classification](https://github.com/abhayrokkam/classify-desserts) project where the model is trained to classify five different types of desserts. The project also focuses on fine-tuning a vision transformer (ViT) with the same architecture that has been pre-trained on ImageNet dataset.
 
 ---
