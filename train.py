@@ -3,10 +3,11 @@ import torchmetrics
 
 from pathlib import Path
 
-from data_setup import get_dataloaders
 from vit import ViT
-from engine import train
-from utils import create_writer, save_model
+
+from modules.data_setup import get_dataloaders
+from modules.engine import train
+from modules.utils import create_writer, save_model
 
 # Hyperparameters
 COLOR_CHANNELS = 1

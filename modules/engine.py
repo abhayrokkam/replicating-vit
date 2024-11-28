@@ -12,7 +12,8 @@ def train_epoch(model: torch.nn.Module,
                 optimizer: torch.optim.Optimizer,
                 accuracy_function: torchmetrics.Accuracy,
                 device: torch.device) -> Dict[str, float]:
-    """Trains the model for one epoch using the provided training data.
+    """
+    Trains the model for one epoch using the provided training data.
 
     This function performs one full pass through the training data, computing
     the loss, performing backpropagation, and updating the model parameters
@@ -74,7 +75,8 @@ def test_epoch(model: torch.nn.Module,
                loss_function: torch.nn.Module,
                accuracy_function: torchmetrics.Accuracy,
                device: torch.device) -> Dict[str, float]:
-    """Evaluates the model for one epoch using the provided test data.
+    """
+    Evaluates the model for one epoch using the provided test data.
 
     This function performs one full pass through the test data, computing the
     loss and accuracy of the model on the test set. The model is set to evaluation
@@ -139,7 +141,8 @@ def train(num_epochs: int,
           accuracy_function: torchmetrics.Accuracy,
           device: torch.device,
           writer: torch.utils.tensorboard.writer.SummaryWriter) -> Dict[str, List[float]]:
-    """Trains and evaluates the model for a specified number of epochs.
+    """
+    Trains and evaluates the model for a specified number of epochs.
 
     Trains the model on the training dataset and evaluates it on the test dataset at
     the end of each epoch. Logs training and test loss, accuracy to TensorBoard and 
