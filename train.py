@@ -23,8 +23,8 @@ NUM_ATTN_HEADS = 6
 RATIO_HIDDEN_MLP = 2
 NUM_ENC_BLOCKS = 6
 
-NUM_EPOCHS = 5
-LEARNING_RATE = 0.001
+NUM_EPOCHS = 10
+LEARNING_RATE = 0.0001
 
 # Device agnostic code
 device = 'cuda' if torch.cuda.is_available() else 'cpu'

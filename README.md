@@ -24,6 +24,10 @@ This project will focus on replicating the model proposed by [**Dosovitskiy et. 
     - [3.3. Multi-Head Self-Attention](#33-multi-head-self-attention)
     - [3.4. Multi-layer Perceptron](#34-multi-layer-perceptron)
   - [4. Classifier](#4-classifier)
+  - [5. Training](#5-training)
+    - [5.1. Data](#51-data)
+    - [5.2. Model Hyperparameters](#52-model-hyperparameters)
+    - [5.3. Results](#53-results)
 
 ## 2. Input to Encoder
 
@@ -255,5 +259,51 @@ The classifier is the final block in the Vision Transformer (ViT) pipeline, resp
     - Apply a softmax function for a probability distribution across classes.
 
     - Use argmax to determine the class with the highest probability, representing the predicted category.
+
+## 5. Training
+
+This section outlines the data, hyperparameters and results for the training process of the Vision Transformer (ViT) model, focusing on simplicity and efficiency for proof of concept.
+
+### 5.1. Data
+
+To facilitate fast training and verification of the model's learning capabilities, we use the Fashion-MNIST dataset. Fashion-MNIST comprises grayscale images representing 10 categories of clothing and accessories. Each image is 28x28 pixels, making it ideal for quick experimentation and benchmarking, especially for smaller-scale models.
+
+```python
+# Data Information
+
+COLOR_CHANNELS = 1
+IMAGE_SHAPE = (28, 28)
+NUM_CLASSES = 10
+```
+
+### 5.2. Model Hyperparameters
+
+The hyperparameters have been scaled down from the ViT base model (ViT-B/16) to better suit the simplicity of the Fashion-MNIST dataset. This adjustment ensures faster training while maintaining the essential components of the transformer architecture. Notable changes include smaller embedding dimensions and fewer patches, as the input images are much smaller compared to the standard datasets used in the ViT paper.
+
+```python
+# Hyperparameters for the model
+
+PATCH_SIZE = (7, 7)    # Size of each image patch
+NUM_PATCHES = 16       # Total number of patches (height / patch_size) * (width / patch_size)
+
+EMBED_DIMS = 48        # Dimensionality of the embeddings
+NUM_ATTN_HEADS = 6     # Number of attention heads in the multi-head attention mechanism
+RATIO_HIDDEN_MLP = 2   # Expansion ratio for the MLP in the encoder and classifier head
+NUM_ENC_BLOCKS = 6     # Number of encoder blocks in the transformer
+```
+
+The model is trained for 10 epochs using a learning rate of 0.0001. These settings provide a balance between computational efficiency and sufficient iterations to demonstrate the model's learning ability.
+
+### 5.3. Results
+
+The model achieves a training accuracy of 88% and a training loss of 0.33 after 10 epochs, demonstrating strong performance given the simplicity of the dataset and scaled-down hyperparameters.
+
+Below are visualizations of the loss and accuracy trends during training:
+
+Loss                                                | Accuracy                                               | 
+:--------------------------------------------------:|:------------------------------------------------------:|
+![Loss Curves](./images/loss_plt.png)               |![Accuracy Curves](./images/accuracy_plt.png)           |
+
+The loss curve illustrates consistent convergence, while the accuracy curve indicates steady improvement over epochs. These results confirm the model's ability to effectively learn patterns in the Fashion-MNIST dataset using the implemented Vision Transformer architecture.
 
 ---
