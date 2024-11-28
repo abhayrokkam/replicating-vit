@@ -17,6 +17,7 @@ This project will focus on replicating the model proposed by [**Dosovitskiy et. 
     - [2.3. Prepend Class Embedding](#23-prepend-class-embedding)
     - [2.4. Adding Positional Embeddings](#24-adding-positional-embeddings)
       - [2.4.1. Why use positional embeddings?](#241-why-use-positional-embeddings)
+      - [2.4.2. Fine-tuning Considerations](#242-fine-tuning-considerations)
   - [3. Transformer Encoder](#3-transformer-encoder)
     - [3.1. Layer Normalizations](#31-layer-normalizations)
     - [3.2. Residual Connections](#32-residual-connections)
@@ -28,12 +29,13 @@ This project will focus on replicating the model proposed by [**Dosovitskiy et. 
 
 We start by processing the image data which is fed to the transformer encoder. We will look at the encoder in a later part of this project. First, we will focus on converting our image data into the below shown format before feeding it to the transformer encoder.
 
-**Overview** (just to read through, detailed explanation is below):
-- Each image is chopped into multiple pieces (patches).
-- Data that is in these patches is converted to patch embeddings.
-- An extra learnable embedding is added (prepended) to the patch embeddings. This represents the class of our image (same as \<classification> token in BERT).
-- Learnable embedding is the layer which will contain the useful information when we use the model for inference. The learnt information from the encoder will be stored here.
-- Adding positional embeddings to give positional information regarding our data. 
+**Overview**:
+
+The input preparation involves several key steps:
+1. Splitting the Image into Patches: Chopping the image into smaller pieces which will be called patches.
+2. Generating Patch Embeddings: Converting each patch into a dense representation in a higher-dimensional space.
+3. Adding a Learnable Class Embedding: Prepending a learnable vector that represents the image class. Same as `<classification>` token in BERT. Learnable embedding is the layer which will contain the useful information when we use the model for inference. The learnt information from the encoder will be stored here.
+1. Incorporating Positional Embeddings: Adding positional information to patches to provide context about their arrangement within the image.
 
 <p align="center">
   <img src="./images/input_to_encoder.png"/>
@@ -45,39 +47,37 @@ We start by processing the image data which is fed to the transformer encoder. W
 
 ### 2.1. Creating Patches
 
-- Chop the image into `n` number of patches. This will be `num_patches`.
+- The image is divided into `num_patches` pieces.
 
-- The height and width of each patch will be `p`. This will be `patch_size`.
+- The height and width of each patch is determined by the `patch_size`.
 
 - Example:
-    - An image of size `224 x 224` with `3` color channels will be of size `(3, 224, 224)`.
 
-    - Each patch is of size `(16, 16)`. So, `patch_size = (16, 16)`. The number of chops along the height is `224 / 16 = 14`, and similarly, along the width, it is also `224 / 16 = 14`.
+For an image of size `(3, 224, 224)` where 3 is the number of color channels:
 
-    - Having 14 pieces along height and 14 pieces along width makes the `num_patches = 14 * 14 = 196`.
+  - Patch size: `(16, 16)`.
 
-    - We have `196` pieces of data for our encoder. Each patch of the image is treated sperately while feeding it to the encoder. 
+  - Patches along height and width: `224 / 16 = 14`.
+
+  - Total number of patches: `14 * 14 = 196`.
+
+  - We have `196` pieces of data for our encoder. Each patch of the image is treated sperately while feeding it to the encoder. 
 
 ---
 
 ### 2.2. Patch Embeddings
 
-- We have `num_patches` number of patches. Each patch is a piece of an image.
+- Each patch is flattened and projected into a vector of `embed_dims` dimensions using a linear layer.
 
-- These patches will have the size of a fixed size. This will be flattened and embedded into `d` number of dimensions. This will be `embed_dims`.
-
-- Each patch is treated serperately. The dependencies and patterns across all the patches is learnt by the multi-head self attention layer in the encoder block (will be discussed later). 
+- Each patch is treated serperately. The dependencies and patterns across all the patches is learnt by the multi-head self attention layer in the encoder block (will be discussed later).
 
 - Example:
-    - Each patch is of the size `16 x 16`.
 
-    - This data will be projected (embedded) into `embed_dims` number of dimensions. Let us take `embed_dims = 768`.
+  - Each patch of size `(16, 16)` will be flattened to the size of `16 * 16 = 256`.
 
-    - Each patch will be turned to a linear vector which has the size of `768`. Total number of patches will be `196`.
+  - Each flattened patch will be embedded to `embed_dims = 768` number of dimensions.
 
-    - The output will be of size `(768, 196)` which will be reshaped for better readability.
-
-    - After reshaping it will be of size `(196, 768)` which shows that there are `196` patches of data with each patch having `768` dimensions.
+  - With `196` patches, the output the patch embeddings section will be `(196, 768)`.
 
 #### 2.2.1. Hybrid architecture
 
@@ -85,91 +85,76 @@ We start by processing the image data which is fed to the transformer encoder. W
 
 The above given text is from [**Dosovitskiy et. al.**](https://doi.org/10.48550/arXiv.2010.11929). It suggests that rather than flattening and embedding the patches, we can also apply an alternative approach. This is introducing CNN to extract feature maps from these images and then flattening these feature maps which will represent the linearly embedded data for each patch. This will be the approach for this project.
 
-**CNN for embedding**:
-- Using CNN with `kernel_size` of `16 x 16` which is the same as `patch_size`.
+- **Implementation**:
 
-- Using `stride` value of `16 x 16` which is the same as `patch_size`.
+  - Using CNN with `kernel_size` and `stride` of `(16, 16)` which is the same as `patch_size`.
 
-- Using these two values will convert an image of size `(3, 224, 224)` into `(d, 14, 14)` as each patch will be converted to one single value from our CNN. Here, `d` is the `output_channels` of our CNN layer. This will be `embed_dims = 768` as it represents the number of dimensions that each patch has to be embedded into.
-
-- The two dimensions of `14` will be flattened to have `196` patches of data. 
+  - Using these values with `embed_dims = 768` will convert an image of size `(3, 224, 224)` to `(768, 14, 14)` which is flattened into `(768, 196)`.
 
 ---
 
 ### 2.3. Prepend Class Embedding
 
-- After the computations of patch embeddings, a learnable dimension has to be prepended to the `patch_embeddings`.
+- A learnable class embedding vector is prepended to the patch embeddings.
 
-- Learnable: The model will use this layer to learn the classes of our data. 
+- Learnable: The model will use this layer to learn the classes of our data. This vector acts as a representative for the entire image and is updated during training.
 
-- Usually initialized with `randn` from the `torch` library. This will be a `nn.Parameter` object. 
+- As it is learnable, it will be an object of `torch.nn.Parameter` making it modifiable during training.
 
-- Using `nn.Parameter` will track gradients making the values modifiable through gradient descent which will be done during training.
+- Example:
 
-- We will be using this layer as the input to our classifer block. (discussed in detail later)
+  - The ouput of `patch_embeddings` will have the shape of `(196, 768)` after reshaping.
 
-- Example: 
-    - The ouput of `patch_embeddings` will have the shape of `(196, 768)` for the number of patches and the dimension of each patch respectively.
+  - Initialized as a random tensor using `torch.randn` and wrapped in `nn.Parameter` for gradient tracking.
 
-    - A learnable classification embedding will be prepended to the `196` patches of data. The learnable layer will have the same dimensions as `embed_dims`. 
-
-    - We will be using `torch.randn` to get random and normalized tensor which will be used in `nn.Paramter`.
-
-    - We will be using `nn.Parameter` and setting `requires_grad = True` to make the values modifiable with gradient descent.
-
-    - This will have the shape of `(1, 768)` which will be prepended to the patch embeddings.
-
-    - The output after prepending will have the shape of `(197, 768)`
+  - The class embedding will have the shape of `(1, 768)` which will be prepended to the patch embeddings. The resulting shape will be `(197, 768)`.
 
 --- 
 
 ### 2.4. Adding Positional Embeddings
 
-- After the computations of all the required embeddings, the focus is to provide some information regarding the positions of the patches with respect to the whole image.
-
-- This information regarding its positions will also be a learnable parameter. The model will learn the positional information during training. The explanation for this is given below.
-
-- The process is same as the `class_embedding`.
+To capture the spatial relationships among patches, learnable positional embeddings are added to the patch embeddings. This information regarding its positions will also be a learnable parameter. The model will learn the positional information during training.
 
 - Example: 
-    - We have the output from the `class_embedding` section which has the shape of `(197, 768)`.
 
-    - Similar process of using `torch.randn` with `nn.Parameter` while setting `requires_grad = True`. This will be of shape `(197, 768)`
+  - A positional embedding tensor of shape `(197, 768)` is added element-wise to the patch embeddings.
 
-    - An element wise addition will be done using `positional_embeddings`. This addition provides the gateway to gradient descent.
-
-    - Image shown below shows the plot of a learned positional embedding.
+  - Initialized similarly to class embeddings using `torch.randn` and `torch.nn.Parameter`.
 
 #### 2.4.1. Why use positional embeddings?
 
+- Positional embeddings provide context about the relative position of patches within the whole image. Imagine cutting an image into thousands of pieces and asking your friend to use these pieces to understand the whole image.
+  
+- Unlike fixed encodings (e.g., sinusoidal embeddings in [**Vaswani et al.**](https://doi.org/10.48550/arXiv.1706.)), learnable embeddings have been shown to yield better results for image data.
+
+#### 2.4.2. Fine-tuning Considerations
+
+- The problem arises while fine-tuning the model as the general consensus is to fine-tune a model on higher resolution data.
+
+- Fine-tuning on higher-resolution images increases the number of patches, potentially invalidating pre-trained positional embeddings.
+
+- A solution is to interpolate pre-trained positional embeddings to match the new patch count while preserving spatial relationships.
+  
 <p align="center">
   <img src="./images/positional_embedding_plt.png"/>
   <br>
   <em>Learned positional embedding with `num_patches = 49`</em>
 </p>
 
-- This is to have some information regarding the postiions of our patches within the whole image. Imagining cutting an image into thousands of pieces and asking your friend to use these pieces to understand the whole image.
-
-> The position embeddings at initialization time carry no information about the 2D positions of the patches and all spatial relations between the patches have to be learned from scratch.
-
-- The paper does not use positional encodings from [**Vaswani et. al.**](https://doi.org/10.48550/arXiv.1706.) as the static values of the encoding process shows less improvements during the training for image data.
-
-- The model sees better results with the positional embeddings where it is learnable and modifiable by the model during training.
-
-- The problem arises while fine-tuning the model as the general consensus is to fine-tune a model on higher resolution data. Higher resolution images with the same `patch_size` will lead to higher number of patches. This makes the learnt positional embeddings during training to be useless. The solution is to perform interpolation of the pre-trained positional embeddings while respecting its position in images.
-
 ## 3. Transformer Encoder
 
-All the data has been processed and is ready to be passed on to the transformer encoder. This section focuses on the architecture of the transformer encoder. The encoder will have multiple layers such as normalization layers, multi-head self-attention layers and multi-layer perceptrons. These layers will be used to learn the information within the patches and store it in the learnable embedding layer.
+Once the input data is preprocessed, it is passed to the transformer encoder, the core component of the Vision Transformer (ViT) architecture. This section explains the structure and functionality of the transformer encoder, which learns relationships within the patches and stores the learned information in the class embedding layer.
 
 **Overview**:
-- The first layer of the transformer encoder will be LayerNormalization. 
-- After normalizations, the second layer will be multi-headed self-attention (MHSA). The three arrows are explained below.
-- There is a residual connection after MHSA.
-- There is another LayerNormalization which leads to a multilayer perceptron (MLP).
-- This is followed with another residual connection.
-- This will be the transformer encoder block. It is possible to have multiple transformer encoder blocks in a single ViT model.
-- The output of the transformer encoder blocks will go through a LayerNormalization before going through the classifier.
+
+The transformer encoder block consists of:
+
+1. Layer Normalization: Normalizes inputs to stabilize and improve training.
+2. Multi-Head Self-Attention (MHSA): Extracts dependencies and relationships across patches.
+3. Residual Connections: Ensures stable gradients and faster convergence by bypassing specific layers.
+4. Multi-Layer Perceptron (MLP): Processes the attention outputs to higher dimensions before reverting to the original embedding size.
+5. Repetition: Multiple encoder blocks can be stacked for enhanced learning.
+6. Final Layer Normalization: Applied to the output of the last encoder block before feeding it into the classifier.
 
 <p align="center">
   <img src="./images/transformer_encoder.png"/>
@@ -181,71 +166,94 @@ All the data has been processed and is ready to be passed on to the transformer 
 
 ### 3.1. Layer Normalizations
 
-- Layer normalization is a basic normalization technique. It is done to scale all the values of one datapoint to a specific range.
-
-- This is to deal with the problem of internal covariate shift. Using normalization makes the model more capable of handling unseen and varied data.
+- Purpose: Scaling the values of a single datapoint to stabalize training and reduce covariate shifts to make the model more capable of handling unseen and varied data.
 
 - Example:
-  - The first layer of the model will be `LayerNorm` which will take in a value for a `normalized_shape` as a hyperparameter. This will be equal to `embed_dims -> 768` which will be the same size as input to the `LayerNorm`.
+  
+  - `normalized_shape`: Matches the embedding dimension (`embed_dims = 768`).
 
 ### 3.2. Residual Connections
 
-- There are two residual connections in this architecture. These are the arrows that bypass different layers and lead to the `+` symbols.
+- There are two residual connections in this architecture. These are the arrows that bypass different layers and lead to the `+` symbols. They take the values from the arrow-tail and add it to the values at the arrow-head (look at the graph).
 
-- The residual connections take the values from the arrow-tail and add it to the values at the arrow-head (look at the graph).
-
-- This is to stabalize the computations of the network. This also helps to disregard the features that don't have a lot of significance making the convergence process faster.
+- This helps to stabalize computations, speeds up convergence and reduces the impact of less significant features.
   
 ### 3.3. Multi-Head Self-Attention
 
-- After normalization, the embeddings are scaled to three different tensors called query, key, value for the multi-head self-attention (MHSA) layer. Those are the three arrows seen from normalization layer to MHSA layer.
+The MHSA mechanism is central to the transformer encoder, enabling the model to learn dependencies between patches through self-attention.
 
-- `query` and `key` is processed for an attention filter. This attention filter is used with the `value` which helps apply the attention filter on the value matrix.
+- Process:
 
-- The output will be a filtered value matrix. 
-  
-- This is the heart of the transformer encoder where most of the learning takes place.
+  - Inputs are transformed into three matrices: Query (`Q`), Key (`K`), and Value (`V`). These are the three arrows seen from normalization layer to MHSA layer.
+
+  - An attention filter is computed using `Q` and `K`.
+
+  - The filter is applied to `V`, resulting in a refined value matrix that emphasizes relevant features.
 
 - Example:
-  - The MHSA will take in `embed_dim` argument which will be equal to `embed_dims -> 768`. 
-  
-  - It also takes in `num_heads -> 12` which is the number of attention heads in the model. This is the 'multi-head' part of the layer. This will decide the number of self-attention layers to be used.
 
-  - We will also set `batch_first` to `True` as there is a batch dimension in the beginning of our data.
+  - `embed_dim`: Embedding dimension size (`768`).
+
+  - `num_heads`: Number of attention heads (`12`). This is the 'multi-head' part of the layer. This will decide the number of self-attention layers to be used.
+
+  - `batch_first`: Set to `True` as the first dimension of the input is the batch dimension.
 
   - All three `query`, `key`, `value` will take the same value which is the output from `LayerNorm`. This is because it is self-attention.
 
 ### 3.4. Multi-layer Perceptron
 
-- This is a simple multi-layer perceptron which processes the data to a higher dimensionality and then moves it back to the original dimensions.
+The MLP block processes the attention outputs by scaling them to a higher-dimensional space and then reducing them back to the original embedding dimensions.
 
-- This is to learn the patterns from the output of the attention block.
+- Purpose:
+
+  - Captures complex patterns in the data.
+
+  - Complements the attention mechanism by enabling further feature learning.
 
 - Example:
-  - The `in_features` will be the output from the previous layers which will be equal to `embed_dims -> 768`. The `out_features` for the first layer will be `mlp_ratio -> 4` which is the ratio by which the embedding dimension should be scaled.
 
-  - The next layer will have `in_features` equal to `mlp_ratio * embed_dims -> 4 * 768` which is the number of dimensions after scaling. `out_features` will bring back the dimension count to the original `embed_dims`.
+  - First Layer:
+
+    - `in_features` will be `embed_dims` (`768`).
+
+    - `out_features` will be `mlp_ratio * embed_dims` (`4 * 768 = 3072`).
+
+  - Second Layer:
+
+    - `in_features` will be `mlp_ratio * embed_dims` (`3072`).
+
+    - `out_features` will be `embed_dims` (`768`).
 
 ## 4. Classifier
 
-The classifier block takes the output of the transformer encoder and uses that information to predict a class for the input image.
+The classifier is the final block in the Vision Transformer (ViT) pipeline, responsible for predicting the class of the input image. It processes the output from the Transformer Encoder to produce classification logits. The design is inspired by the original ViT paper, which outlines different configurations for pre-training and fine-tuning:
 
-The below given text is from the Vision Transformer paper. This specifies different approaches for pre-training and fine-tuning.
+> *"The classification head is implemented by a MLP with one hidden layer at pre-training time and by a single linear layer at fine-tuning time."* (Dosovitskiy et. al.)
 
-> The classification head is implemented by a MLP with one hidden layer at pre-training time and by a single linear layer at fine-tuning time. 
+1. Input to Classifier: The final output from the Transformer Encoder is normalized via a LayerNorm layer, resulting in a tensor of shape `(class_embedding + num_patches, embed_dims)`, typically (`197, 768`) for standard ViT configurations.
 
-- The output of the transformer encoder after going through a `layer_norm` layer will have the shape of `(class_embedding + num_patches, embed_dims) -> (197, 768)`.
+2. Classifier Layers:
+   
+    - Pre-training: An MLP with one hidden layer is used.
 
-- As it is a model which will be trained-from-scratch, classifier will be a MLP with one hidden layer.
+    - Fine-tuning: A single linear layer is preferrable.
 
-- The input for the linear layer is the learnable embedding from the output of the transformer encoder which has the shape of `(class_embedding, embed_dims) -> (1, 768)`.
+3. MLP Details:
 
-- This first linear layer will scale the `embed_dims -> 768` to `mlp_ratio * embed_dims -> 4 * 768`. The hidden layer of the MLP will have `4 * 768` units.
+    - The input for the first linear layer is the class token (`class_embedding`), extracted as a tensor of shape `(1, embed_dims)`, which will be `(1, 768)`.
 
-- The next linear layer will scale the `mlp_ratio * embed_dims -> 4 * 768` to `num_classes` which is the number of classes that is in our classification problem.
+    - The first layer projects the embedding dimension (`768`) to a higher dimension based on the `mlp_ratio`, which will be `4 * 768`.
 
-- The outputs will have a number associated for each class. For a probability distribution across all the classes, we can apply a `softmax` function. This is how likely the image is to belong to each class.
+    - A hidden layer processes this expanded representation.
 
-- Using `argmax` will pick the highest probability out of all the classes which is the most likely classification of our image.
+    - The second linear layer reduces the hidden dimensions back to `num_classes`, where `num_classes` represents the number of categories in the classification problem.
+
+4. Output and Prediction:
+
+    - The final output is a vector of logits for each class.
+
+    - Apply a softmax function for a probability distribution across classes.
+
+    - Use argmax to determine the class with the highest probability, representing the predicted category.
 
 ---
